@@ -264,6 +264,3 @@ def process_task(task_name):
     except Exception as e:
         print(f"An error occurred: {e}")
         return jsonify({"message": "서버 내부 오류가 발생했습니다."}), 500
-
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
