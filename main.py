@@ -9,6 +9,12 @@ import os
 app = Flask(__name__)
 CORS(app)  # Allow cross-origin requests
 
+# --- Health Check Endpoint ---
+@app.route('/')
+def health_check():
+    """서버가 실행 중인지 확인하기 위한 기본 엔드포인트입니다."""
+    return "Backend server is running!"
+
 # --- Helper Functions from the original script ---
 
 def extract_korean(text):
