@@ -1,3 +1,4 @@
+# main.py
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import re
@@ -6,16 +7,19 @@ import fitz  # PyMuPDF
 import io
 import os
 
+# Flask 애플리케이션 객체를 'app'이라는 이름으로 생성합니다.
+# gunicorn이 'main:app' 설정으로 이 객체를 찾아 실행합니다.
 app = Flask(__name__)
-CORS(app)  # Allow cross-origin requests
+CORS(app)  # 모든 도메인에서의 API 요청을 허용합니다.
 
 # --- Health Check Endpoint ---
 @app.route('/')
 def health_check():
-    """서버가 실행 중인지 확인하기 위한 기본 엔드포인트입니다."""
+    """서버가 정상적으로 실행 중인지 확인하기 위한 경로입니다."""
     return "Backend server is running!"
 
-# --- Helper Functions from the original script ---
+# --- Helper Functions ---
+# 사용자의 원본 Python 스크립트에서 가져온 헬퍼 함수들입니다.
 
 def extract_korean(text):
     """주어진 텍스트에서 한글만 추출하여 공백으로 연결합니다."""
@@ -38,6 +42,7 @@ def process_name_line_s1(line):
     return f"{reformatted_korean}{reformatted_english}"
 
 # --- Processing Logic for Each Tab ---
+# 각 탭의 파일 처리 로직입니다.
 
 def handle_tab1(file, regex_pattern, decorator_str):
     """색인 추출 (Tab 1) 로직"""
@@ -70,7 +75,6 @@ def handle_tab1(file, regex_pattern, decorator_str):
     for item in formatted_matches:
         new_doc.add_paragraph(item)
     
-    # Save to an in-memory stream
     file_stream = io.BytesIO()
     new_doc.save(file_stream)
     file_stream.seek(0)
@@ -89,8 +93,7 @@ def handle_tab2(file):
     
     for para in source_doc.paragraphs:
         original_text = para.text.strip()
-        if not original_text:
-            continue
+        if not original_text: continue
         changed_text = process_name_line_s1(original_text)
         row_cells = table.add_row().cells
         row_cells[0].text, row_cells[1].text = original_text, changed_text if changed_text else ""
@@ -140,9 +143,8 @@ def handle_tab4(pdf_file, docx_file, page_range_str):
 
     pdf_doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
     
-    # Parse page range
     total_pages = pdf_doc.page_count
-    page_range_iterator = range(total_pages) # Default to all pages
+    page_range_iterator = range(total_pages)
     if page_range_str:
         match = re.match(r'^\s*(\d+)\s*-\s*(\d+)\s*$', page_range_str)
         if match:
@@ -220,7 +222,7 @@ def handle_tab5(file):
 
 
 # --- API Endpoint ---
-
+# 프론트엔드로부터 요청을 받아 각 기능에 맞는 처리 함수를 호출합니다.
 @app.route('/api/process/<task_name>', methods=['POST'])
 def process_task(task_name):
     try:
@@ -228,30 +230,24 @@ def process_task(task_name):
             file = request.files.get('file')
             regex = request.form.get('regex')
             decorator = request.form.get('decorator')
-            if not file:
-                return jsonify({"message": "파일이 없습니다."}), 400
+            if not file: return jsonify({"message": "파일이 없습니다."}), 400
             result_stream = handle_tab1(file, regex, decorator)
             filename = f"result_{task_name}.docx"
 
         elif task_name in ['tab2', 'tab3', 'tab5']:
             file = request.files.get('file')
-            if not file:
-                return jsonify({"message": "파일이 없습니다."}), 400
+            if not file: return jsonify({"message": "파일이 없습니다."}), 400
             
-            if task_name == 'tab2':
-                result_stream = handle_tab2(file)
-            elif task_name == 'tab3':
-                result_stream = handle_tab3(file)
-            else: # tab5
-                result_stream = handle_tab5(file)
+            if task_name == 'tab2': result_stream = handle_tab2(file)
+            elif task_name == 'tab3': result_stream = handle_tab3(file)
+            else: result_stream = handle_tab5(file) # tab5
             filename = f"result_{task_name}.docx"
 
         elif task_name == 'tab4':
             pdf_file = request.files.get('pdf_file')
             docx_file = request.files.get('docx_file')
             page_range = request.form.get('page_range')
-            if not pdf_file or not docx_file:
-                return jsonify({"message": "PDF 또는 DOCX 파일이 없습니다."}), 400
+            if not pdf_file or not docx_file: return jsonify({"message": "PDF 또는 DOCX 파일이 없습니다."}), 400
             result_stream = handle_tab4(pdf_file, docx_file, page_range)
             filename = f"result_{task_name}.docx"
 
